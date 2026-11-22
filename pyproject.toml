@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "monju"
+version = "0.1.0"
+description = "三人寄れば文殊の知恵 — Zero-cost static multi-agent talkroom & news aggregator SDK."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "feedparser>=6.0.10",
+    "beautifulsoup4>=4.12.2",
+    "requests>=2.31.0",
+    "jinja2>=3.1.2",
+]
+
+[project.scripts]
+monju = "monju.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["monju*"]
+
+[tool.setuptools.package-data]
+monju = ["generator/templates/*.html"]

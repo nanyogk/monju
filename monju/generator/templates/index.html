@@ -1,0 +1,674 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if current_category_obj %}
+    {{ current_category_obj.name }} | {{ site.brand_name }}
+  {% elif current_team_obj %}
+    {{ current_team_obj.name }} | {{ site.brand_name }}
+  {% else %}
+    {{ site.brand_name }} — {{ site.tagline }}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-3">
+
+  <!-- Slim Sub-bar (Articles Stand Out Immediately Above the Fold) -->
+  <div class="flex items-center justify-between text-xs py-1 border-b border-slate-200/80 dark:border-slate-800/80">
+    <div class="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200 truncate">
+      {% if current_category_obj %}
+        <span>{{ current_category_obj.emoji | default('⚽') }}</span>
+        <span>{{ current_category_obj.name }}</span>
+        <span class="hidden sm:inline text-[11px] font-normal text-slate-400">— {{ current_category_obj.description }}</span>
+      {% elif current_team_obj %}
+        <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background-color: {{ current_team_obj.color }};"></span>
+        <span>{{ current_team_obj.name }}</span>
+      {% else %}
+        <span>🍵</span>
+        <span>{{ i18n.subbar_title }}</span>
+      {% endif %}
+    </div>
+    <div class="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 shrink-0">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span>{{ persona_count }}{{ i18n.agents_active_suffix }}</span>
+    </div>
+  </div>
+
+  {% if is_top_page %}
+    <!-- Row 2: Compact Sportsnavi-Style Preset Switcher Bar (1..5 Non-Destructive Slots) -->
+    <section aria-label="My Feed Presets" class="space-y-2">
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs font-bold no-scrollbar" id="preset-strip">
+        <!-- Rendered & hydrated immediately via Vanilla JS (SSR fallback shown first) -->
+        <button type="button" data-preset-id="all" onclick="selectPreset('all')"
+                class="preset-pill shrink-0 px-3 py-1.5 rounded-xl border transition bg-emerald-600 text-white border-emerald-600 shadow-2xs">
+          🔥 {{ i18n.preset_all }}
+        </button>
+        {% for p in default_presets %}
+          <button type="button" data-preset-id="{{ p.id }}" onclick="selectPreset('{{ p.id }}')"
+                  class="preset-pill shrink-0 px-3 py-1.5 rounded-xl border transition bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500">
+            {{ p.name }}
+          </button>
+        {% endfor %}
+        <button type="button" id="strip-add-btn" onclick="openPresetDrawer(true)"
+                class="shrink-0 px-2.5 py-1.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+          ＋ {{ i18n.preset_add }}
+        </button>
+      </div>
+
+      <!-- Active Preset Compact Status Line (Shown only when filtering by a preset) -->
+      <div id="active-preset-summary" class="hidden flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px]">
+        <div class="flex items-center gap-1.5 flex-wrap min-w-0" id="active-preset-chips"></div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="active-preset-count" class="font-bold text-emerald-700 dark:text-emerald-300"></span>
+          <button type="button" onclick="openPresetDrawer(false)" class="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:border-emerald-500 transition">
+            ✎ {{ i18n.preset_edit }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+  {% elif current_category_obj %}
+    <!-- Category Page: Single-Line Horizontal Scroll Club Strip (Only for THIS Category) -->
+    {% for grp in teams_by_category %}
+      {% if grp.slug == current_category and grp.teams %}
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
+          {% for team in grp.teams %}
+            <a href="/t/{{ team.slug }}/"
+               class="shrink-0 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1.5 transition">
+              <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ team.color }};"></span>
+              <span>{{ team.short_name }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  <!-- Articles Grid -->
+  <div id="articles-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+    {% for article in articles %}
+      {% set primary_cat = category_map.get(article.category, {}) %}
+      <article
+        class="feed-card group rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+        data-categories="{{ article.categories | join(',') }}"
+        data-teams="{{ article.team_tags | map(attribute='slug') | join(',') }}">
+        <a href="/articles/{{ article.slug }}/" class="p-4 flex flex-col flex-1 space-y-2.5">
+
+          <!-- Category, Video Badge & Date Header -->
+          <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+              {{ primary_cat.short_name | default(primary_cat.name | default(article.category)) }}
+            </span>
+            {% if article.video_id %}
+              <span class="px-1.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/70 dark:border-rose-800/60 font-bold text-[10px]">
+                ▶ {{ i18n.badge_video }}
+              </span>
+            {% endif %}
+            <span class="truncate">{{ article.source }}</span>
+            <span class="ml-auto shrink-0">{{ article.published_at[:10] }}</span>
+          </div>
+
+          <!-- Title -->
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition leading-snug line-clamp-2">
+            {{ article.title }}
+          </h2>
+
+          <!-- Summary Snippet -->
+          <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+            {{ article.summary }}
+          </p>
+
+          <!-- Punchy Teaser Quote Bubble -->
+          {% if article.punchy_quote %}
+            <div class="mt-auto pt-1">
+              <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                <span class="text-sm shrink-0">💬</span>
+                <p class="italic line-clamp-2 text-[11px] leading-relaxed font-medium">
+                  「{{ article.punchy_quote }}」
+                </p>
+              </div>
+            </div>
+          {% endif %}
+        </a>
+
+        <!-- Footer / Team Tags -->
+        <div class="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/50">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            {% for team in article.team_tags[:4] %}
+              <span class="px-1.5 py-0.5 rounded text-[10px] text-white font-bold" style="background-color: {{ team.color }};">
+                {{ team.short_name }}
+              </span>
+            {% endfor %}
+          </div>
+          <span class="text-emerald-600 dark:text-emerald-400 text-xs font-bold group-hover:translate-x-1 transition-transform inline-flex items-center gap-0.5 shrink-0">
+            {{ i18n.read_banter }}
+          </span>
+        </div>
+      </article>
+
+      <!-- In-Feed AdSense Slot (Every 6th article) -->
+      {% if loop.index % 6 == 0 and not loop.last %}
+        <div class="feed-ad-slot md:col-span-2 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 text-center text-xs text-slate-400">
+          <span>{{ i18n.sponsor_label }}</span>
+          <div class="h-16 flex items-center justify-center font-mono text-[11px]">
+            Google AdSense (Native In-Feed Ad Slot)
+          </div>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="md:col-span-2 py-12 text-center text-slate-400 text-sm">
+        {{ i18n.no_articles }}
+      </div>
+    {% endfor %}
+
+    <!-- Dynamic Empty State when a custom preset matches 0 articles -->
+    <div id="preset-empty-state" class="hidden md:col-span-2 py-12 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-3">
+      <div class="text-2xl">🧐</div>
+      <div class="font-bold text-sm text-slate-800 dark:text-slate-200">{{ i18n.preset_empty_title }}</div>
+      <p class="text-xs text-slate-500 dark:text-slate-400">{{ i18n.preset_empty_desc }}</p>
+      <div class="flex items-center justify-center gap-2 pt-1">
+        <button type="button" onclick="openPresetDrawer(false)" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+          ⚙️ {{ i18n.preset_edit }}
+        </button>
+        <button type="button" onclick="selectPreset('all')" class="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition">
+          🔥 {{ i18n.preset_show_all }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% if is_top_page %}
+<!-- Sportsnavi-Style Preset & ON/OFF Settings Drawer -->
+<div id="preset-drawer" class="fixed inset-0 z-50 hidden bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="if(event.target === this) closePresetDrawer()">
+  <div class="bg-white dark:bg-slate-900 w-full sm:max-w-xl max-h-[88vh] rounded-t-2xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden">
+
+    <!-- Drawer Header -->
+    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-950/60">
+      <div class="flex items-center gap-2">
+        <span>⚙️</span>
+        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ i18n.preset_drawer_title }}</h3>
+      </div>
+      <button type="button" onclick="closePresetDrawer()" class="w-7 h-7 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-sm">✕</button>
+    </div>
+
+    <!-- Drawer Body (Scrollable) -->
+    <div class="p-4 overflow-y-auto space-y-4 flex-1 text-xs">
+      <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+        {{ i18n.preset_drawer_hint }}
+      </p>
+
+      <!-- Preset Slot Selector (1..5 non-destructive slots) -->
+      <div class="space-y-2">
+        <div class="flex items-center gap-1.5 flex-wrap" id="drawer-slot-tabs"></div>
+
+        <!-- Selected Preset Name + Delete/Reset Controls -->
+        <div class="flex items-center gap-2">
+          <input type="text" id="drawer-preset-name" maxlength="20"
+                 oninput="updateEditingPresetName(this.value)"
+                 placeholder="{{ i18n.preset_name_label }}"
+                 class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs focus:outline-emerald-500">
+          <button type="button" id="drawer-delete-btn" onclick="deleteEditingPreset()"
+                  class="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 font-bold text-[11px] transition">
+            🗑 {{ i18n.preset_delete }}
+          </button>
+          <button type="button" onclick="resetPresetsToDefault()"
+                  class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-[11px] transition">
+            ↺ {{ i18n.preset_reset }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Part 1: Category ON/OFF Toggles -->
+      <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div class="font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+          <span>📂 {{ i18n.preset_categories_label }}</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="drawer-category-toggles">
+          {% for cat in categories %}
+            <button type="button" data-cat-slug="{{ cat.slug }}" onclick="toggleEditingCategory('{{ cat.slug }}')"
+                    class="drawer-cat-btn px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5">
+              <span>{{ cat.emoji | default('⚽') }}</span>
+              <span>{{ cat.short_name | default(cat.name) }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Part 2: Individual Teams ON/OFF (Grouped by League Tab + Search) -->
+      <div class="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-bold text-slate-700 dark:text-slate-200">🏷️ {{ i18n.preset_teams_label }}</span>
+          <button type="button" onclick="clearCurrentLeagueTeams()" class="text-[11px] text-slate-400 hover:text-rose-500 font-semibold">
+            {{ i18n.preset_clear_league }}
+          </button>
+        </div>
+
+        <!-- League Tabs + Search -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" id="drawer-league-tabs">
+          {% for grp in teams_by_category %}
+            <button type="button" data-league-slug="{{ grp.slug }}" onclick="selectDrawerLeague('{{ grp.slug }}')"
+                    class="drawer-league-tab shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition">
+              {{ grp.short_name }}
+            </button>
+          {% endfor %}
+        </div>
+
+        <input type="search" id="drawer-team-search" oninput="renderDrawerTeamChips()"
+               placeholder="{{ i18n.preset_search_placeholder }}"
+               class="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-emerald-500">
+
+        <!-- Team Chips Grid -->
+        <div id="drawer-team-chips" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto py-1"></div>
+      </div>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 flex items-center justify-between gap-2">
+      <div class="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+        {{ i18n.preset_hit_prefix }} <span id="drawer-hit-count" class="text-sm font-black">0</span> {{ i18n.preset_hit_suffix }}
+      </div>
+      <button type="button" onclick="saveAndApplyPresets()"
+              class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition">
+        ✓ {{ i18n.preset_save }}
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if is_top_page %}
+<script>
+  // =========================================================================
+  // monju Sportsnavi-Style Preset Engine (Zero Dependencies, 100% Static)
+  // =========================================================================
+  const SITE_ID = {{ site.site_id | default('monju') | tojson }};
+  const MAX_PRESETS = {{ max_presets | tojson }};
+  const DEFAULT_PRESETS = {{ default_presets | tojson }};
+  const CATEGORIES = {{ categories | tojson }};
+  const TEAMS_BY_CATEGORY = {{ teams_by_category | tojson }};
+  const UI = {
+    all: {{ i18n.preset_all | tojson }},
+    add: {{ i18n.preset_add | tojson }},
+    hitSuffix: {{ i18n.preset_hit_suffix | tojson }},
+  };
+
+  const STORAGE_PRESETS = `monju_${SITE_ID}_presets_v1`;
+  const STORAGE_ACTIVE = `monju_${SITE_ID}_active_preset_v1`;
+
+  const CAT_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.slug, c.short_name || c.name]));
+  const TEAM_MAP = {};
+  TEAMS_BY_CATEGORY.forEach(g => g.teams.forEach(t => { TEAM_MAP[t.slug] = t; }));
+
+  let presets = loadPresets();
+  let activePresetId = localStorage.getItem(STORAGE_ACTIVE) || 'all';
+  let editingPresetId = null;
+  let activeDrawerLeague = TEAMS_BY_CATEGORY.length ? TEAMS_BY_CATEGORY[0].slug : '';
+
+  function cloneDefaults() {
+    return JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+  }
+
+  function loadPresets() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PRESETS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return cloneDefaults();
+  }
+
+  function persistPresets() {
+    localStorage.setItem(STORAGE_PRESETS, JSON.stringify(presets));
+    localStorage.setItem(STORAGE_ACTIVE, activePresetId);
+  }
+
+  function getPresetById(id) {
+    return presets.find(p => p.id === id) || null;
+  }
+
+  function cardMatchesPreset(card, preset) {
+    if (!preset) return true;
+    const cardCats = (card.dataset.categories || '').split(',').filter(Boolean);
+    const cardTeams = (card.dataset.teams || '').split(',').filter(Boolean);
+    const catMatch = cardCats.some(c => preset.categories.includes(c));
+    const teamMatch = cardTeams.some(t => preset.teams.includes(t));
+    return catMatch || teamMatch;
+  }
+
+  function countMatches(preset) {
+    let count = 0;
+    document.querySelectorAll('.feed-card').forEach(card => {
+      if (cardMatchesPreset(card, preset)) count++;
+    });
+    return count;
+  }
+
+  function renderPresetStrip() {
+    const strip = document.getElementById('preset-strip');
+    if (!strip) return;
+    let html = `
+      <button type="button" onclick="selectPreset('all')"
+              class="shrink-0 px-3 py-1.5 rounded-xl border transition ${activePresetId === 'all'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500'}">
+        🔥 ${UI.all}
+      </button>
+    `;
+    presets.forEach(p => {
+      const isActive = activePresetId === p.id;
+      html += `
+        <button type="button" onclick="selectPreset('${p.id}')"
+                class="shrink-0 px-3 py-1.5 rounded-xl border transition ${isActive
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500'}">
+          ${escapeHtml(p.name)}
+        </button>
+      `;
+    });
+    if (presets.length < MAX_PRESETS) {
+      html += `
+        <button type="button" onclick="openPresetDrawer(true)"
+                class="shrink-0 px-2.5 py-1.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+          ＋ ${UI.add}
+        </button>
+      `;
+    }
+    strip.innerHTML = html;
+  }
+
+  function applyActivePreset() {
+    if (activePresetId !== 'all' && !getPresetById(activePresetId)) {
+      activePresetId = 'all';
+    }
+    const preset = activePresetId === 'all' ? null : getPresetById(activePresetId);
+    const cards = document.querySelectorAll('.feed-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const show = cardMatchesPreset(card, preset);
+      card.style.display = show ? 'flex' : 'none';
+      if (show) visibleCount++;
+    });
+
+    // Keep ad slots clean when filtered heavily
+    document.querySelectorAll('.feed-ad-slot').forEach((ad, idx) => {
+      ad.style.display = (!preset || visibleCount >= (idx + 1) * 6) ? 'block' : 'none';
+    });
+
+    // Empty state
+    const emptyEl = document.getElementById('preset-empty-state');
+    if (emptyEl) {
+      emptyEl.classList.toggle('hidden', visibleCount > 0 || cards.length === 0);
+    }
+
+    // Active summary strip
+    const summaryEl = document.getElementById('active-preset-summary');
+    const chipsEl = document.getElementById('active-preset-chips');
+    const countEl = document.getElementById('active-preset-count');
+
+    if (summaryEl && chipsEl && countEl) {
+      if (!preset) {
+        summaryEl.classList.add('hidden');
+      } else {
+        summaryEl.classList.remove('hidden');
+        let chipsHtml = '';
+        preset.categories.forEach(c => {
+          chipsHtml += `<span class="px-2 py-0.5 rounded-md bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold">${escapeHtml(CAT_LABEL[c] || c)}</span>`;
+        });
+        preset.teams.forEach(tSlug => {
+          const t = TEAM_MAP[tSlug];
+          if (t) {
+            chipsHtml += `<span class="px-2 py-0.5 rounded-md text-white font-bold" style="background-color:${t.color}">${escapeHtml(t.short_name)}</span>`;
+          }
+        });
+        if (!chipsHtml) {
+          chipsHtml = `<span class="text-slate-400">ON項目なし</span>`;
+        }
+        chipsEl.innerHTML = chipsHtml;
+        countEl.textContent = `${visibleCount} ${UI.hitSuffix}`;
+      }
+    }
+
+    renderPresetStrip();
+    persistPresets();
+  }
+
+  function selectPreset(id) {
+    activePresetId = id;
+    applyActivePreset();
+  }
+
+  // --- Drawer Controls ---
+  function openPresetDrawer(createNew = false) {
+    if (createNew && presets.length < MAX_PRESETS) {
+      const idx = presets.length + 1;
+      const newId = 'custom-' + Date.now();
+      presets.push({
+        id: newId,
+        name: `💚 My${idx}`,
+        categories: [],
+        teams: []
+      });
+      editingPresetId = newId;
+      activePresetId = newId;
+    } else if (activePresetId !== 'all' && getPresetById(activePresetId)) {
+      editingPresetId = activePresetId;
+    } else {
+      editingPresetId = presets[0].id;
+    }
+
+    document.getElementById('preset-drawer').classList.remove('hidden');
+    renderDrawer();
+  }
+
+  function closePresetDrawer() {
+    document.getElementById('preset-drawer').classList.add('hidden');
+    applyActivePreset();
+  }
+
+  function saveAndApplyPresets() {
+    if (editingPresetId && getPresetById(editingPresetId)) {
+      activePresetId = editingPresetId;
+    }
+    closePresetDrawer();
+  }
+
+  function selectEditingPreset(id) {
+    editingPresetId = id;
+    renderDrawer();
+  }
+
+  function createNewSlotInDrawer() {
+    if (presets.length >= MAX_PRESETS) return;
+    const idx = presets.length + 1;
+    const newId = 'custom-' + Date.now();
+    presets.push({ id: newId, name: `💚 My${idx}`, categories: [], teams: [] });
+    editingPresetId = newId;
+    renderDrawer();
+  }
+
+  function updateEditingPresetName(val) {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    p.name = val.trim() || 'My Preset';
+    renderDrawerSlotTabs();
+  }
+
+  function deleteEditingPreset() {
+    if (presets.length <= 1) return;
+    presets = presets.filter(p => p.id !== editingPresetId);
+    if (activePresetId === editingPresetId) activePresetId = 'all';
+    editingPresetId = presets[0].id;
+    renderDrawer();
+  }
+
+  function resetPresetsToDefault() {
+    presets = cloneDefaults();
+    activePresetId = 'all';
+    editingPresetId = presets[0].id;
+    renderDrawer();
+  }
+
+  function toggleEditingCategory(catSlug) {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    const i = p.categories.indexOf(catSlug);
+    if (i >= 0) p.categories.splice(i, 1);
+    else p.categories.push(catSlug);
+    renderDrawerToggles();
+  }
+
+  function toggleEditingTeam(teamSlug) {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    const i = p.teams.indexOf(teamSlug);
+    if (i >= 0) p.teams.splice(i, 1);
+    else p.teams.push(teamSlug);
+    renderDrawerTeamChips();
+    updateDrawerHitCount();
+  }
+
+  function selectDrawerLeague(leagueSlug) {
+    activeDrawerLeague = leagueSlug;
+    renderDrawerLeagueTabs();
+    renderDrawerTeamChips();
+  }
+
+  function clearCurrentLeagueTeams() {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    const grp = TEAMS_BY_CATEGORY.find(g => g.slug === activeDrawerLeague);
+    if (!grp) return;
+    const slugs = new Set(grp.teams.map(t => t.slug));
+    p.teams = p.teams.filter(t => !slugs.has(t));
+    renderDrawerTeamChips();
+    updateDrawerHitCount();
+  }
+
+  function renderDrawer() {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    renderDrawerSlotTabs();
+    document.getElementById('drawer-preset-name').value = p.name;
+    const delBtn = document.getElementById('drawer-delete-btn');
+    delBtn.disabled = presets.length <= 1;
+    delBtn.classList.toggle('opacity-40', presets.length <= 1);
+    renderDrawerToggles();
+    renderDrawerLeagueTabs();
+    renderDrawerTeamChips();
+  }
+
+  function renderDrawerSlotTabs() {
+    const wrap = document.getElementById('drawer-slot-tabs');
+    let html = '';
+    presets.forEach(p => {
+      const active = p.id === editingPresetId;
+      html += `
+        <button type="button" onclick="selectEditingPreset('${p.id}')"
+                class="px-2.5 py-1 rounded-lg border font-bold text-xs transition ${active
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}">
+          ${escapeHtml(p.name)}
+        </button>
+      `;
+    });
+    if (presets.length < MAX_PRESETS) {
+      html += `
+        <button type="button" onclick="createNewSlotInDrawer()"
+                class="px-2.5 py-1 rounded-lg border border-dashed border-emerald-400 text-emerald-700 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition">
+          ＋ ${UI.add} (${presets.length}/${MAX_PRESETS})
+        </button>
+      `;
+    }
+    wrap.innerHTML = html;
+  }
+
+  function renderDrawerToggles() {
+    const p = getPresetById(editingPresetId);
+    if (!p) return;
+    document.querySelectorAll('.drawer-cat-btn').forEach(btn => {
+      const slug = btn.dataset.catSlug;
+      const on = p.categories.includes(slug);
+      btn.className = `drawer-cat-btn px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+        on
+          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500'
+      }`;
+    });
+    updateDrawerHitCount();
+  }
+
+  function renderDrawerLeagueTabs() {
+    document.querySelectorAll('.drawer-league-tab').forEach(tab => {
+      const active = tab.dataset.leagueSlug === activeDrawerLeague;
+      tab.className = `drawer-league-tab shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+        active
+          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white'
+          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+      }`;
+    });
+  }
+
+  function renderDrawerTeamChips() {
+    const p = getPresetById(editingPresetId);
+    const wrap = document.getElementById('drawer-team-chips');
+    const q = (document.getElementById('drawer-team-search').value || '').trim().toLowerCase();
+    if (!p || !wrap) return;
+
+    let list = [];
+    if (q) {
+      TEAMS_BY_CATEGORY.forEach(g => g.teams.forEach(t => {
+        if ((t.name + ' ' + t.short_name + ' ' + (t.keywords || []).join(' ')).toLowerCase().includes(q)) {
+          list.push(t);
+        }
+      }));
+    } else {
+      const grp = TEAMS_BY_CATEGORY.find(g => g.slug === activeDrawerLeague);
+      list = grp ? grp.teams : [];
+    }
+
+    wrap.innerHTML = list.map(t => {
+      const on = p.teams.includes(t.slug);
+      return `
+        <button type="button" onclick="toggleEditingTeam('${t.slug}')"
+                class="px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition ${
+                  on
+                    ? 'text-white border-transparent shadow-2xs'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500'
+                }"
+                style="${on ? `background-color:${t.color};` : ''}">
+          <span class="w-2 h-2 rounded-full shrink-0" style="background-color:${on ? '#ffffff' : t.color};"></span>
+          <span>${escapeHtml(t.short_name)}</span>
+          ${on ? '<span class="text-[10px]">✓</span>' : ''}
+        </button>
+      `;
+    }).join('');
+  }
+
+  function updateDrawerHitCount() {
+    const p = getPresetById(editingPresetId);
+    const el = document.getElementById('drawer-hit-count');
+    if (el) el.textContent = p ? countMatches(p) : 0;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    applyActivePreset();
+    if (location.hash === '#my-settings') {
+      openPresetDrawer(false);
+      history.replaceState(null, '', '/');
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

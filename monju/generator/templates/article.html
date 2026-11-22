@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }} | {{ site.brand_name }}{% endblock %}
+{% block description %}{{ article.summary }}{% endblock %}
+
+{% block head_extra %}
+  {% if next_article %}<link rel="prefetch" href="/articles/{{ next_article.slug }}/">{% endif %}
+  {% if prev_article %}<link rel="prefetch" href="/articles/{{ prev_article.slug }}/">{% endif %}
+
+  <meta property="og:title" content="{{ article.title }}">
+  <meta property="og:description" content="{{ punchy_quote }}">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ article.title }}">
+  <meta name="twitter:description" content="{{ punchy_quote }}">
+{% endblock %}
+
+{% block content %}
+{% set primary_cat = category_map.get(article.category, {}) %}
+<article class="space-y-6">
+
+  <!-- Breadcrumbs & Category Badge -->
+  <div class="flex items-center gap-2 text-xs font-semibold flex-wrap">
+    <a href="/" class="text-emerald-600 dark:text-emerald-400 hover:underline">{{ i18n.breadcrumb_home }}</a>
+    <span class="text-slate-400">/</span>
+    <a href="/c/{{ article.category }}/" class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:opacity-80">
+      {{ primary_cat.short_name | default(primary_cat.name | default(article.category)) }}
+    </a>
+    {% for team in article.team_tags %}
+      <a href="/t/{{ team.slug }}/" class="px-2 py-0.5 rounded-full text-white text-[11px] font-bold" style="background-color: {{ team.color }};">
+        {{ team.short_name }}
+      </a>
+    {% endfor %}
+    <span class="ml-auto text-slate-400 font-normal">{{ article.published_at[:10] }}</span>
+  </div>
+
+  <!-- Headline -->
+  <header class="space-y-3">
+    <h1 class="text-xl sm:text-2xl font-black leading-snug tracking-tight text-slate-900 dark:text-white">
+      {{ article.title }}
+    </h1>
+    <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <span class="font-bold">{{ i18n.source_label }}: {{ article.source }}</span>
+      <span>•</span>
+      <a href="{{ article.link }}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1">
+        {{ i18n.read_original }} <span class="text-[10px]">↗</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- YouTube Video Player Embed (if video article) -->
+  {% if article.video_id %}
+    <div class="rounded-2xl overflow-hidden shadow-md border border-slate-200 dark:border-slate-800 bg-black aspect-video relative">
+      <iframe
+        src="https://www.youtube.com/embed/{{ article.video_id }}?rel=0"
+        title="{{ article.title }}"
+        class="w-full h-full"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    </div>
+  {% endif %}
+
+  <!-- News / Highlight Summary Box -->
+  <section class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+    <p class="text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-300">
+      {{ article.summary }}
+    </p>
+
+    {% if article.fan_comments %}
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <span>👥</span>
+          <span>{{ i18n.fan_buzz_title }}</span>
+        </div>
+        <ul class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+          {% for fan_c in article.fan_comments %}
+            <li class="flex items-start gap-1.5">
+              <span class="text-slate-400">•</span>
+              <span>「{{ fan_c }}」</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- In-Article AdSense Slot 1 -->
+  <div class="my-4 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 text-center text-xs text-slate-400">
+    <span>{{ i18n.sponsor_label }}</span>
+    <div class="h-20 flex items-center justify-center font-mono text-[11px] text-slate-400">
+      Google AdSense (Responsive In-Article Banner)
+    </div>
+  </div>
+
+  <!-- Talkroom Comments Section -->
+  <section class="space-y-3 pt-1">
+    <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-2">
+      <div class="flex items-center gap-2">
+        <span class="text-base">💬</span>
+        <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+          {{ i18n.comments_heading }}
+        </h2>
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+          {{ dialogue|length }}{{ i18n.comments_count_suffix }}
+        </span>
+      </div>
+
+      <!-- Unified Settings Pane Trigger -->
+      <button
+        type="button"
+        onclick="toggleSettingsPane()"
+        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex items-center gap-1.5 transition shadow-2xs">
+        <span>⚙️</span>
+        <span>{{ i18n.agent_settings_btn }}</span>
+      </button>
+    </div>
+
+    <!-- Collapsible Unified Settings & Custom Persona Pane -->
+    <div id="settings-pane" class="hidden p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 transition-all space-y-4">
+      <!-- Part A: Mute/Unmute Filter -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <span>🎛️</span>
+            <span>{{ i18n.agent_filter_title }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="resetAllMutes()" class="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold">
+              {{ i18n.agent_show_all }}
+            </button>
+            <button onclick="toggleSettingsPane()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">✕</button>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+          {{ i18n.agent_filter_hint }}
+        </p>
+        <div class="flex flex-wrap gap-1.5">
+          {% for comment in dialogue %}
+            <button
+              type="button"
+              onclick="togglePersona('{{ comment.persona_id }}')"
+              id="filter-btn-{{ comment.persona_id }}"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs">
+              <span>{{ comment.avatar_emoji }}</span>
+              <span>{{ comment.short_name }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Part B: Add Custom Persona Form -->
+      <div class="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+        <div class="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+          <span>✨</span>
+          <span>{{ i18n.custom_agent_title }}</span>
+        </div>
+
+        <div id="ai-engine-status" class="p-2 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-[10px]">
+          <div class="flex items-center gap-1.5 font-bold">
+            <span id="ai-status-indicator" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="ai-status-title" class="text-slate-800 dark:text-slate-200">Checking browser AI...</span>
+          </div>
+          <span id="ai-status-detail" class="text-slate-400 font-mono">Ready</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <input type="text" id="custom-name" placeholder="{{ i18n.custom_agent_name_ph }}" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-emerald-500">
+          <input type="text" id="custom-emoji" value="⚽" placeholder="{{ i18n.custom_agent_emoji_ph }}" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-center font-medium focus:outline-emerald-500">
+          <input type="color" id="custom-color" value="#059669" class="w-full h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer">
+        </div>
+
+        <textarea id="custom-prompt" rows="2" placeholder="{{ i18n.custom_agent_prompt_ph }}" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-medium focus:outline-emerald-500"></textarea>
+
+        <div class="flex justify-end">
+          <button id="btn-custom-generate" onclick="generateAndPostCustomPersona()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-xs flex items-center gap-1.5 transition">
+            <span>⚡</span>
+            <span>{{ i18n.custom_agent_submit }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alternating Left & Right Speech Bubbles -->
+    <div id="dialogue-container" class="space-y-4 pt-1">
+      {% for comment in dialogue %}
+        {% set is_right = (loop.index % 2 == 0) %}
+        <div class="persona-bubble flex items-start gap-2.5 sm:gap-3 transition-all duration-200 {% if is_right %}flex-row-reverse{% endif %}" data-persona-id="{{ comment.persona_id }}">
+          <div class="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg sm:text-xl shadow-xs border" style="background-color: {{ comment.color }}20; border-color: {{ comment.color }};">
+            {{ comment.avatar_emoji }}
+          </div>
+
+          <div class="max-w-[86%] sm:max-w-[78%] rounded-2xl p-3.5 sm:p-4 bg-white dark:bg-slate-900 border shadow-xs relative text-left {% if is_right %}rounded-tr-xs border-r-4{% else %}rounded-tl-xs border-l-4{% endif %}" style="{% if is_right %}border-right-color: {{ comment.color }};{% else %}border-left-color: {{ comment.color }};{% endif %}">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                {{ comment.speaker_name }}
+                <span class="text-[10px] font-normal text-slate-400">#{{ comment.turn }}</span>
+              </span>
+              <button onclick="mutePersonaPermanently('{{ comment.persona_id }}')" class="text-[10px] text-slate-400 hover:text-rose-500" title="{{ i18n.mute_tooltip }}">
+                ✕
+              </button>
+            </div>
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200 font-normal">
+              {{ comment.content }}
+            </p>
+          </div>
+        </div>
+      {% endfor %}
+
+      <div id="user-custom-comments" class="space-y-4"></div>
+    </div>
+  </section>
+
+  <!-- In-Article AdSense Slot 2 -->
+  <div class="my-6 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 text-center text-xs text-slate-400">
+    <span>{{ i18n.sponsor_label }}</span>
+    <div class="h-24 flex items-center justify-center font-mono text-[11px] text-slate-400">
+      Google AdSense (Matched Content / Display Unit)
+    </div>
+  </div>
+
+  <!-- Prev / Next Navigation -->
+  <nav class="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 text-xs font-bold">
+    {% if prev_article %}
+      <a href="/articles/{{ prev_article.slug }}/" class="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition truncate max-w-[45%]">
+        {{ i18n.prev_article }}
+      </a>
+    {% else %}
+      <div></div>
+    {% endif %}
+
+    {% if next_article %}
+      <a href="/articles/{{ next_article.slug }}/" class="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition truncate max-w-[45%] text-right">
+        {{ i18n.next_article }}
+      </a>
+    {% endif %}
+  </nav>
+
+  <div class="text-center pt-2">
+    <a href="/" class="inline-block px-5 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition">
+      {{ i18n.back_to_list }}
+    </a>
+  </div>
+
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const SITE_ID = {{ site.site_id | default('monju') | tojson }};
+  const SITE_LOCALE = {{ site.locale | default('ja') | tojson }};
+  const STORAGE_KEY_MUTED = `monju_${SITE_ID}_muted_personas`;
+  const SUBMIT_LABEL = {{ i18n.custom_agent_submit | tojson }};
+  const GEN_LABEL = {{ i18n.custom_agent_generating | tojson }};
+  const CUSTOM_BADGE = {{ i18n.custom_agent_badge | tojson }};
+
+  function getMutedPersonas() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_MUTED) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveMutedPersonas(list) {
+    localStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(list));
+  }
+
+  function applyPersonaVisibility() {
+    const muted = getMutedPersonas();
+    document.querySelectorAll('.persona-bubble').forEach(bubble => {
+      const pid = bubble.dataset.personaId;
+      if (!pid) return;
+      const isMuted = muted.includes(pid);
+      bubble.style.display = isMuted ? 'none' : 'flex';
+      const btn = document.getElementById('filter-btn-' + pid);
+      if (btn) {
+        btn.style.opacity = isMuted ? '0.4' : '1';
+        btn.style.textDecoration = isMuted ? 'line-through' : 'none';
+      }
+    });
+  }
+
+  function togglePersona(pid) {
+    let muted = getMutedPersonas();
+    muted = muted.includes(pid) ? muted.filter(id => id !== pid) : [...muted, pid];
+    saveMutedPersonas(muted);
+    applyPersonaVisibility();
+  }
+
+  function mutePersonaPermanently(pid) {
+    let muted = getMutedPersonas();
+    if (!muted.includes(pid)) {
+      muted.push(pid);
+      saveMutedPersonas(muted);
+      applyPersonaVisibility();
+    }
+  }
+
+  function resetAllMutes() {
+    saveMutedPersonas([]);
+    applyPersonaVisibility();
+  }
+
+  function toggleSettingsPane() {
+    const pane = document.getElementById('settings-pane');
+    if (pane) {
+      pane.classList.toggle('hidden');
+      if (!pane.classList.contains('hidden')) checkLocalAIEngine();
+    }
+  }
+
+  let detectedAIEngine = 'heuristic';
+
+  async function checkLocalAIEngine() {
+    const indicator = document.getElementById('ai-status-indicator');
+    const titleEl = document.getElementById('ai-status-title');
+    const detailEl = document.getElementById('ai-status-detail');
+    if (!titleEl) return;
+
+    try {
+      if (window.ai && window.ai.languageModel) {
+        const caps = await window.ai.languageModel.capabilities();
+        if (caps && caps.available !== 'no') {
+          detectedAIEngine = 'window.ai';
+          indicator.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          titleEl.textContent = SITE_LOCALE === 'en' ? 'Built-in Chrome AI Ready' : 'Chrome内蔵AI (Gemini Nano) 利用可能';
+          detailEl.textContent = 'window.ai (0 yen)';
+          return;
+        }
+      }
+    } catch (e) {}
+
+    if (navigator.gpu) {
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (adapter) {
+          detectedAIEngine = 'webgpu';
+          indicator.className = 'w-2 h-2 rounded-full bg-blue-500';
+          titleEl.textContent = SITE_LOCALE === 'en' ? 'WebGPU Local AI Ready' : 'WebGPU対応 (Gemma/WebLLM対応)';
+          detailEl.textContent = 'WebGPU Active';
+          return;
+        }
+      } catch (e) {}
+    }
+
+    detectedAIEngine = 'heuristic';
+    indicator.className = 'w-2 h-2 rounded-full bg-amber-500';
+    titleEl.textContent = SITE_LOCALE === 'en' ? 'Instant Client-Side Engine' : '軽量キャラ生成エンジン稼働中';
+    detailEl.textContent = 'Zero-Cost Browser Mode';
+  }
+
+  async function generateCustomAIComment(name, prompt, articleTitle) {
+    if (detectedAIEngine === 'window.ai' && window.ai && window.ai.languageModel) {
+      try {
+        const session = await window.ai.languageModel.create({ systemPrompt: prompt });
+        const ask = SITE_LOCALE === 'en'
+          ? `React to "${articleTitle}" in character in max 2 short sentences.`
+          : `記事「${articleTitle}」に対してキャラクターになりきり最大2行でコメントしてください。`;
+        const reply = await session.prompt(ask);
+        session.destroy();
+        if (reply && reply.trim()) return reply.trim();
+      } catch (e) {}
+    }
+
+    await new Promise(r => setTimeout(r, 450));
+    const tShort = articleTitle.slice(0, 22) + (articleTitle.length > 22 ? '…' : '');
+    if (SITE_LOCALE === 'en') {
+      return `My take on "${tShort}"? Everyone's missing the real angle here — let's keep this debate going!`;
+    }
+    const p = prompt.toLowerCase();
+    if (p.includes('辛口') || p.includes('厳し') || p.includes('採点')) {
+      return `「${tShort}」を持ち上げすぎ。細部の詰めが甘すぎる。俺の採点は厳しめに「4.0」だな。`;
+    }
+    if (p.includes('戦術') || p.includes('システム') || p.includes('采配')) {
+      return `「${tShort}」の勝敗を分けたのは配置とトランジションの設計。監督の意図がはっきり出ている。`;
+    }
+    return `私の視点からすると「${tShort}」は今後の流れを左右する大きなトピック。この熱い展開をもっと語り合いたいですね！`;
+  }
+
+  async function generateAndPostCustomPersona() {
+    const name = document.getElementById('custom-name').value.trim() || CUSTOM_BADGE;
+    const emoji = document.getElementById('custom-emoji').value.trim() || '🤖';
+    const color = document.getElementById('custom-color').value || '#059669';
+    const prompt = document.getElementById('custom-prompt').value.trim() || '';
+
+    const btn = document.getElementById('btn-custom-generate');
+    btn.disabled = true;
+    btn.innerHTML = `<span>⚡</span><span>${GEN_LABEL}</span>`;
+
+    try {
+      const articleTitle = {{ article.title | tojson }};
+      const generatedComment = await generateCustomAIComment(name, prompt, articleTitle);
+      const container = document.getElementById('user-custom-comments');
+      const bubble = document.createElement('div');
+      bubble.className = 'persona-bubble flex items-start gap-2.5 sm:gap-3 transition-all duration-300 flex-row-reverse';
+      bubble.innerHTML = `
+        <div class="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg sm:text-xl shadow-xs border" style="background-color: ${color}20; border-color: ${color};">
+          ${emoji}
+        </div>
+        <div class="max-w-[86%] sm:max-w-[78%] rounded-2xl p-3.5 sm:p-4 bg-white dark:bg-slate-900 border shadow-xs relative text-left rounded-tr-xs border-r-4" style="border-right-color: ${color};">
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <span class="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+              ${name}
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">✨ ${CUSTOM_BADGE}</span>
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200 font-normal">
+            ${generatedComment}
+          </p>
+        </div>
+      `;
+      container.appendChild(bubble);
+      btn.disabled = false;
+      btn.innerHTML = `<span>⚡</span><span>${SUBMIT_LABEL}</span>`;
+      bubble.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>⚡</span><span>${SUBMIT_LABEL}</span>`;
+    }
+  }
+
+  // Native Swipe Navigation
+  let startX = 0, startY = 0;
+  document.addEventListener('touchstart', e => {
+    startX = e.changedTouches[0].screenX;
+    startY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].screenX - startX;
+    const dy = e.changedTouches[0].screenY - startY;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2) {
+      if (dx < 0 && "{% if next_article %}/articles/{{ next_article.slug }}/{% endif %}") {
+        location.href = "{% if next_article %}/articles/{{ next_article.slug }}/{% endif %}";
+      }
+      if (dx > 0 && "{% if prev_article %}/articles/{{ prev_article.slug }}/{% endif %}") {
+        location.href = "{% if prev_article %}/articles/{{ prev_article.slug }}/{% endif %}";
+      }
+    }
+  }, { passive: true });
+
+  document.addEventListener('DOMContentLoaded', applyPersonaVisibility);
+</script>
+{% endblock %}
