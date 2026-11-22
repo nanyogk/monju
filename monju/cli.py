@@ -36,6 +36,7 @@ def run_pipeline(
     tweet: bool = False,
     force_dialogue: bool = False,
     check_feeds: bool = False,
+    base_path: str = "",
 ) -> None:
     ctx = load_site(site_dir)
 
@@ -81,8 +82,8 @@ def run_pipeline(
     print(f"[monju] Tracked articles: {len(all_articles)} (new dialogues: {new_dialogue_count})")
 
     if build:
-        print(f"[monju] Building static site into {ctx.public_dir}...")
-        build_site(ctx, all_articles)
+        print(f"[monju] Building static site into {ctx.public_dir} (base_path='{base_path}')...")
+        build_site(ctx, all_articles, base_path=base_path)
 
     if tweet and all_articles:
         latest = all_articles[0]
@@ -99,6 +100,7 @@ def main(default_site: str = ".") -> None:
     parser.add_argument("--build", action="store_true", help="Build static site into <site>/public/")
     parser.add_argument("--tweet", action="store_true", help="Publish latest article to X")
     parser.add_argument("--force-dialogue", action="store_true", help="Force regenerate banter threads with LLM")
+    parser.add_argument("--base-path", default="", help="Optional URL base path prefix (e.g. /shibabata-j for GitHub Pages)")
     parser.add_argument("--all", action="store_true", help="Run full pipeline (Fetch -> Dialogue -> Build -> Tweet)")
     args = parser.parse_args()
 
@@ -111,6 +113,7 @@ def main(default_site: str = ".") -> None:
             tweet=True,
             force_dialogue=args.force_dialogue,
             check_feeds=args.check_feeds,
+            base_path=args.base_path,
         )
     else:
         run_pipeline(
@@ -121,4 +124,5 @@ def main(default_site: str = ".") -> None:
             tweet=args.tweet,
             force_dialogue=args.force_dialogue,
             check_feeds=args.check_feeds,
+            base_path=args.base_path,
         )

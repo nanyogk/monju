@@ -7,7 +7,7 @@
   <meta name="description" content="{% block description %}{{ site.description }}{% endblock %}">
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="{{ base_path }}/manifest.json">
   <meta name="theme-color" content="{{ site.theme_color | default('#10b981') }}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -51,7 +51,7 @@
   <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-2xs transition-colors">
     <div class="max-w-4xl mx-auto px-3 sm:px-4 h-11 sm:h-12 flex items-center justify-between gap-2">
       <!-- Brand -->
-      <a href="/" class="flex items-center gap-1.5 font-black text-base sm:text-lg tracking-tight shrink-0 group">
+      <a href="{{ base_path }}/" class="flex items-center gap-1.5 font-black text-base sm:text-lg tracking-tight shrink-0 group">
         <span class="text-xl">{{ site.logo_emoji | default('⚽') }}</span>
         <span class="text-slate-900 dark:text-white font-extrabold">{{ site.brand_name }}</span>
         {% if site.brand_sub %}
@@ -61,12 +61,12 @@
 
       <!-- Desktop Category Nav (Single Authoritative Menubar) -->
       <nav class="hidden sm:flex items-center gap-0.5 text-xs font-bold overflow-x-auto no-scrollbar">
-        <a href="/"
+        <a href="{{ base_path }}/"
            class="px-2.5 py-1 rounded-lg whitespace-nowrap transition {% if is_top_page %}bg-emerald-600 text-white shadow-2xs{% else %}text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800{% endif %}">
           {{ i18n.nav_all }}
         </a>
         {% for cat in categories %}
-          <a href="/c/{{ cat.slug }}/"
+          <a href="{{ base_path }}/c/{{ cat.slug }}/"
              class="px-2.5 py-1 rounded-lg whitespace-nowrap transition {% if current_category == cat.slug and not is_top_page %}bg-emerald-600 text-white shadow-2xs{% else %}text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800{% endif %}">
             {{ cat.short_name | default(cat.name) }}
           </a>
@@ -81,7 +81,7 @@
           <span>{{ i18n.my_settings }}</span>
         </button>
       {% else %}
-        <a href="/#my-settings"
+        <a href="{{ base_path }}/#my-settings"
            class="shrink-0 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition">
           <span>⚙️</span>
           <span>{{ i18n.my_settings }}</span>
@@ -91,12 +91,12 @@
 
     <!-- Mobile Horizontal Category Strip (Compact Single Row) -->
     <div class="sm:hidden flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-bold no-scrollbar">
-      <a href="/"
+      <a href="{{ base_path }}/"
          class="whitespace-nowrap px-2.5 py-0.5 rounded-full transition {% if is_top_page %}bg-emerald-600 text-white{% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300{% endif %}">
         {{ i18n.nav_all_mobile }}
       </a>
       {% for cat in categories %}
-        <a href="/c/{{ cat.slug }}/"
+        <a href="{{ base_path }}/c/{{ cat.slug }}/"
            class="whitespace-nowrap px-2.5 py-0.5 rounded-full transition {% if current_category == cat.slug and not is_top_page %}bg-emerald-600 text-white{% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300{% endif %}">
           {{ cat.short_name | default(cat.name) }}
         </a>
@@ -115,9 +115,9 @@
       <p class="font-bold text-slate-700 dark:text-slate-300">{{ site.brand_name }}{% if site.brand_sub %} ({{ site.brand_sub }}){% endif %}</p>
       <p class="text-[11px]">{{ i18n.footer_powered }}</p>
       <div class="flex flex-wrap justify-center gap-3 sm:gap-4 pt-2">
-        <a href="/" class="hover:underline">{{ i18n.breadcrumb_home }}</a>
+        <a href="{{ base_path }}/" class="hover:underline">{{ i18n.breadcrumb_home }}</a>
         {% for cat in categories %}
-          <a href="/c/{{ cat.slug }}/" class="hover:underline">{{ cat.short_name | default(cat.name) }}</a>
+          <a href="{{ base_path }}/c/{{ cat.slug }}/" class="hover:underline">{{ cat.short_name | default(cat.name) }}</a>
         {% endfor %}
         {% if site.github_url %}
           <a href="{{ site.github_url }}" target="_blank" rel="noopener" class="hover:underline">GitHub</a>

@@ -77,7 +77,8 @@ Creating a new vertical talkroom requires **zero Python or HTML edits** — only
 
 ---
 
-## 5. Planned Sibling Verticals
+## 5. Planned Sibling Verticals & Dev Cycle
 
-* **[`blueprints/90plus-bar/`](./blueprints/90plus-bar/README.md)**: English-only stoppage-time banter bar covering **Europe (EPL/UCL/La Liga) + MLS + J-League**.
+* **[`DEV_CYCLE.md`](./DEV_CYCLE.md)**: Full operational playbook — local LAN vs GitHub Pages mobile iteration, `--check-feeds` RSS curation, `--recategorize`, LLM activation, and new vertical launch steps.
+* **[`blueprints/90plus-bar/`](./blueprints/90plus-bar/README.md)**: English-only stoppage-time banter bar covering **Europe (EPL/UCL/La Liga) + MLS + J-League** (alternate brand name: **`touchline-pub`**).
 * **[`blueprints/bench-yakyu/`](./blueprints/bench-yakyu/README.md)**: Japanese baseball dugout talkroom covering **NPB (Central/Pacific) + MLB Japanese Stars + Samurai Japan**.

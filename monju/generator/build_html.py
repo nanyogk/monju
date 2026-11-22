@@ -14,15 +14,34 @@ from monju.site_loader import SiteContext
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
-def build_site(ctx: SiteContext, articles: list[dict[str, Any]]) -> None:
+def build_site(ctx: SiteContext, articles: list[dict[str, Any]], base_path: str = "") -> None:
     """Build all static HTML pages and PWA files into ctx.public_dir."""
     public_dir = ctx.public_dir
     public_dir.mkdir(parents=True, exist_ok=True)
+
+    # Normalize base_path: "" or "/subpath" (no trailing slash)
+    norm_base = base_path.strip()
+    if norm_base and not norm_base.startswith("/"):
+        norm_base = "/" + norm_base
+    norm_base = norm_base.rstrip("/")
 
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
     categories = ctx.categories
     all_teams = ctx.teams
     category_map = {c["slug"]: c for c in categories}
+
+    # Build source list & name->id backfill map for source-level filtering
+    sources: list[dict[str, Any]] = []
+    source_name_to_id: dict[str, str] = {}
+    for f in ctx.feeds:
+        fid = f.get("id") or f.get("name", "")
+        fname = f.get("name", fid)
+        sources.append({
+            "id": fid,
+            "name": fname,
+            "type": f.get("type", "rss"),
+        })
+        source_name_to_id[fname] = fid
 
     # Group teams by category slug in taxonomy order
     teams_by_category: list[dict[str, Any]] = []
@@ -36,19 +55,23 @@ def build_site(ctx: SiteContext, articles: list[dict[str, Any]]) -> None:
             "teams": cat_teams,
         })
 
-    # Normalize categories list on every article for safe template rendering
+    # Normalize categories & feed_id on every article for safe template rendering
     sorted_articles = sorted(articles, key=lambda x: x.get("published_at", ""), reverse=True)
     for art in sorted_articles:
         if not art.get("categories"):
             art["categories"] = [art.get("category", categories[0]["slug"] if categories else "general")]
+        if not art.get("feed_id"):
+            art["feed_id"] = source_name_to_id.get(art.get("source", ""), "")
 
     shared_ctx = {
         "site": ctx.site,
         "i18n": ctx.i18n,
+        "base_path": norm_base,
         "categories": categories,
         "category_map": category_map,
         "all_teams": all_teams,
         "teams_by_category": teams_by_category,
+        "sources": sources,
         "persona_count": len(ctx.personas),
         "default_presets": ctx.site.get("default_presets", []),
         "max_presets": int(ctx.site.get("max_presets", 5)),
@@ -144,7 +167,8 @@ def build_site(ctx: SiteContext, articles: list[dict[str, Any]]) -> None:
     manifest = {
         "name": f"{brand} - {ctx.site.get('tagline', '')}".strip(" -"),
         "short_name": brand,
-        "start_url": "/",
+        "start_url": f"{norm_base}/",
+        "scope": f"{norm_base}/",
         "display": "standalone",
         "background_color": "#ffffff",
         "theme_color": theme_color,
